@@ -5,12 +5,24 @@ Implements the two metrics from Section 3.2 of the paper:
     - AllNodeMetric: Precision/Recall/F-Score for node detection (PCK-based)
     - CoursonMetric: Structure-aware metric for pruning-relevant nodes
 
+Supports caching predictions to disk so that metric computation can be
+re-run with different parameters (e.g. tau_d) without re-running inference.
+
 Usage:
+    # First run: inference + metrics (saves cache automatically)
     python evaluate.py --data_path /path/to/3D2cut_Single_Guyot/ \
                        --checkpoint path/to/model.pt
+
+    # Subsequent runs: load from cache, skip inference
+    python evaluate.py --data_path /path/to/3D2cut_Single_Guyot/ \
+                       --checkpoint path/to/model.pt \
+                       --cache_dir ./eval_cache \
+                       --tau_d 10.0
 """
 
 import argparse
+import os
+import pickle
 from collections import defaultdict
 
 import numpy as np
@@ -128,56 +140,41 @@ def compute_allnode_metric(
     return results
 
 
-# ── Main Evaluation Loop ──────────────────────────────────────────────────────
+# ── Caching ───────────────────────────────────────────────────────────────────
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate ViNet on the 3D2cut test set")
-    parser.add_argument("--data_path", type=str, required=True)
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to .pt model weights")
-    parser.add_argument("--tau_d", type=float, default=5.0, help="Association distance threshold")
-    parser.add_argument("--front_channels", type=int, default=DEFAULT_FRONT_CHANNELS)
-    parser.add_argument("--hourglass_channels", type=int, default=DEFAULT_HOURGLASS_CHANNELS)
-    parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--num_workers", type=int, default=0)
-    return parser.parse_args()
+def get_cache_path(cache_dir: str, checkpoint: str) -> str:
+    """Derive a cache filename from the checkpoint path."""
+    ckpt_name = os.path.splitext(os.path.basename(checkpoint))[0]
+    return os.path.join(cache_dir, f"eval_cache_{ckpt_name}.pkl")
 
 
-def main():
-    args = parse_args()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    resize_h, resize_w = DEFAULT_RESIZE
+def save_cache(path: str, pred_nodes: dict, gt_nodes: dict, avg_loss: float) -> None:
+    """Save extracted nodes and loss to a pickle file."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        pickle.dump(
+            {"pred_nodes": dict(pred_nodes), "gt_nodes": dict(gt_nodes), "avg_loss": avg_loss},
+            f,
+        )
+    print(f"Cached predictions to {path}")
 
-    # Load model
-    model = StackedHourglassNetwork(
-        in_channels=3,
-        front_channels=args.front_channels,
-        hourglass_channels=args.hourglass_channels,
-        num_output_channels=NUM_OUTPUT_CHANNELS,
-    )
-    model.load_state_dict(torch.load(args.checkpoint, map_location=device))
-    model = model.to(device)
-    model.eval()
 
-    # Load test dataset
-    val_transforms = get_val_transforms()
-    test_dataset = VineDataset(
-        args.data_path + "/02-IndependentTestSet",
-        transforms=val_transforms,
-        new_height=resize_h,
-        new_width=resize_w,
-        split="test",
-    )
+def load_cache(path: str) -> tuple[dict, dict, float] | None:
+    """Load cached predictions if the file exists."""
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        data = pickle.load(f)
+    print(f"Loaded cached predictions from {path}")
+    return data["pred_nodes"], data["gt_nodes"], data["avg_loss"]
 
-    print(f"Test samples: {len(test_dataset)}")
 
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-    )
+# ── Inference ─────────────────────────────────────────────────────────────────
 
-    # Accumulate metrics across all images
+def run_inference(
+    model, test_loader, device, resize_h, resize_w
+) -> tuple[dict, dict, float]:
+    """Run model inference and extract predicted/GT nodes from all test images."""
     accumulated_pred = defaultdict(list)
     accumulated_gt = defaultdict(list)
     total_loss = 0.0
@@ -192,20 +189,18 @@ def main():
             loss = criterion(output1, M) + criterion(output2, M)
             total_loss += loss.item()
 
-            # Extract predictions from stage 2
             for k in range(images.size(0)):
+                # Predicted nodes from stage 2
                 heatmaps, vector_fields = recover_heatmaps_vector_fields(
                     output2[k].cpu(), resize=(resize_h, resize_w)
                 )
-
-                # Extract predicted nodes
                 for bname, bt in BRANCH_TYPES.items():
                     for nname, nt in NODE_TYPES.items():
                         hm = heatmaps[bt, nt].numpy()
                         coords = extract_node_coordinates(hm)
                         accumulated_pred[(bname, nname)].extend(coords)
 
-                # Extract GT nodes from M
+                # GT nodes from M
                 gt_heatmaps, _ = recover_heatmaps_vector_fields(
                     M[k].cpu(), resize=(resize_h, resize_w)
                 )
@@ -218,8 +213,85 @@ def main():
             if (batch_idx + 1) % 50 == 0:
                 print(f"  Processed {batch_idx + 1}/{len(test_loader)} batches...")
 
-    # Compute metrics
     avg_loss = total_loss / len(test_loader)
+    return dict(accumulated_pred), dict(accumulated_gt), avg_loss
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Evaluate ViNet on the 3D2cut test set")
+    parser.add_argument("--data_path", type=str, required=True)
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to .pt model weights")
+    parser.add_argument("--tau_d", type=float, default=5.0, help="Association distance threshold")
+    parser.add_argument("--front_channels", type=int, default=DEFAULT_FRONT_CHANNELS)
+    parser.add_argument("--hourglass_channels", type=int, default=DEFAULT_HOURGLASS_CHANNELS)
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--num_workers", type=int, default=0)
+    parser.add_argument(
+        "--cache_dir", type=str, default="./eval_cache",
+        help="Directory for caching predictions (default: ./eval_cache)",
+    )
+    parser.add_argument(
+        "--no_cache", action="store_true",
+        help="Force re-running inference even if cache exists",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    resize_h, resize_w = DEFAULT_RESIZE
+
+    cache_path = get_cache_path(args.cache_dir, args.checkpoint)
+
+    # Try loading from cache
+    cached = None if args.no_cache else load_cache(cache_path)
+
+    if cached is not None:
+        accumulated_pred, accumulated_gt, avg_loss = cached
+    else:
+        # Load model
+        print(f"Loading model from {args.checkpoint}...")
+        model = StackedHourglassNetwork(
+            in_channels=3,
+            front_channels=args.front_channels,
+            hourglass_channels=args.hourglass_channels,
+            num_output_channels=NUM_OUTPUT_CHANNELS,
+        )
+        model.load_state_dict(torch.load(args.checkpoint, map_location=device))
+        model = model.to(device)
+        model.eval()
+
+        # Load test dataset
+        val_transforms = get_val_transforms()
+        test_dataset = VineDataset(
+            args.data_path + "/02-IndependentTestSet",
+            transforms=val_transforms,
+            new_height=resize_h,
+            new_width=resize_w,
+            split="test",
+        )
+        print(f"Test samples: {len(test_dataset)}")
+
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+        )
+
+        # Run inference
+        print("Running inference...")
+        accumulated_pred, accumulated_gt, avg_loss = run_inference(
+            model, test_loader, device, resize_h, resize_w
+        )
+
+        # Save cache
+        save_cache(cache_path, accumulated_pred, accumulated_gt, avg_loss)
+
+    # Compute metrics (fast, no GPU needed)
     print(f"\nAverage test loss: {avg_loss:.6f}")
 
     metrics = compute_allnode_metric(accumulated_pred, accumulated_gt, tau_d=args.tau_d)
@@ -231,7 +303,7 @@ def main():
     print(f"{'Category':<35} {'Precision':>9} {'Recall':>9} {'F-Score':>9}")
     print(f"{'-'*70}")
 
-    for cat, m in sorted(metrics.items()):
+    for cat, m in sorted(metrics.items(), key=lambda x: str(x[0])):
         if cat == "all_nodes":
             continue
         label = f"{cat[0]} / {cat[1]}"
