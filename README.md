@@ -1,2 +1,0 @@
-# VinPRO
-ASP project repository
