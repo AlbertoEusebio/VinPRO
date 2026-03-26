@@ -229,11 +229,12 @@ def generate_node_heatmaps(
         x_s = int(x * scale_x)
         y_s = int(y * scale_y)
 
-        # Bounding box for efficiency (3σ covers 99.7%)
-        x_min = max(0, int(x_s - 3 * sigma))
-        x_max = min(new_width, int(x_s + 3 * sigma))
-        y_min = max(0, int(y_s - 3 * sigma))
-        y_max = min(new_height, int(y_s + 3 * sigma))
+        # Bounding box for efficiency; use 5σ radius for the exponential-decay
+        # formula (Eq. 1) which decays slower than a standard Gaussian.
+        x_min = max(0, int(x_s - 5 * sigma))
+        x_max = min(new_width, int(x_s + 5 * sigma))
+        y_min = max(0, int(y_s - 5 * sigma))
+        y_max = min(new_height, int(y_s + 5 * sigma))
 
         if x_max <= x_min or y_max <= y_min:
             continue
@@ -242,8 +243,10 @@ def generate_node_heatmaps(
         y_range = np.arange(y_min, y_max)
         x_grid, y_grid = np.meshgrid(x_range, y_range)
 
+        # Eq. 1: M*_c(p) = max_j exp(-||p - x_j|| / σ²)
+        # Numerator is L2 distance (not squared); denominator is σ² (not 2σ²).
         gaussian = np.exp(
-            -((x_grid - x_s) ** 2 + (y_grid - y_s) ** 2) / (2 * sigma**2)
+            -np.sqrt((x_grid - x_s) ** 2 + (y_grid - y_s) ** 2) / (sigma ** 2)
         )
         heatmaps[branch_type, node_type, y_min:y_max, x_min:x_max] += gaussian
 

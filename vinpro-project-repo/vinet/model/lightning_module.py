@@ -34,16 +34,17 @@ class HourglassLightningModule(pl.LightningModule):
         super().__init__()
         self.model = model
         self.lr = lr
-        self.criterion = loss_fn or nn.MSELoss()
+        # Paper Eq. 3 sums over all pixels and channels, so use 'sum' reduction.
+        self.criterion = loss_fn or nn.MSELoss(reduction="sum")
 
     def forward(self, x: torch.Tensor):
         return self.model(x)
 
     def _shared_step(self, batch, stage: str) -> torch.Tensor:
-        images, M = batch
+        images, M1, M2 = batch
         out1, out2 = self.forward(images.float())
-        loss1 = self.criterion(out1, M)
-        loss2 = self.criterion(out2, M)
+        loss1 = self.criterion(out1, M1)
+        loss2 = self.criterion(out2, M2)
         loss = loss1 + loss2
 
         self.log(f"{stage}_loss", loss, on_step=(stage == "train"), on_epoch=True, prog_bar=True)
@@ -61,20 +62,13 @@ class HourglassLightningModule(pl.LightningModule):
         return self._shared_step(batch, "test")
 
     def configure_optimizers(self):
-        """Adam optimizer with ReduceLROnPlateau scheduler monitoring val_loss."""
+        """Adam optimizer with StepLR: decay 0.9× every 5000 iterations (Section 3.1)."""
         optimizer = optim.Adam(self.parameters(), lr=self.lr)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=0.5,
-            patience=5,
-            min_lr=1e-20,
-            verbose=True,
-        )
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5000, gamma=0.9)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_loss",
+                "interval": "step",
             },
         }

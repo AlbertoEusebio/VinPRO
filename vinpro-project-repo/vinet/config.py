@@ -44,11 +44,10 @@ DEFAULT_RESIZE = (256, 256)
 DEFAULT_CROP_SIZE = 1024
 DEFAULT_BATCH_SIZE = 1
 DEFAULT_LR = 1e-3
-DEFAULT_WEIGHT_DECAY = 1e-4
-DEFAULT_MAX_EPOCHS = 300
-DEFAULT_SIGMA_STAGE1 = 40   # Gaussian spread for first hourglass GT
-DEFAULT_SIGMA_STAGE2 = 15   # Gaussian spread for second hourglass GT
-DEFAULT_SIGMA_HEATMAP = 1.5 # Gaussian sigma for heatmap generation
+DEFAULT_WEIGHT_DECAY = 0
+DEFAULT_MAX_EPOCHS = 386
+DEFAULT_SIGMA_STAGE1 = 40   # Exponential-decay spread for first hourglass GT (paper σ₁)
+DEFAULT_SIGMA_STAGE2 = 15   # Exponential-decay spread for second hourglass GT (paper σ₂)
 DEFAULT_LIMB_WIDTH = 3      # Width of vector field around branches
 
 # ── Model Architecture Defaults ───────────────────────────────────────────────

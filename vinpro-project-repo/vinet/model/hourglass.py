@@ -234,6 +234,7 @@ class StackedHourglassNetwork(nn.Module):
 
         # Stage 1
         y1 = self.hg1(features)
+        y1 = self.hg1_post(y1)
         pred_stage1 = self.out_stage1(y1)
 
         # Merge for stage 2

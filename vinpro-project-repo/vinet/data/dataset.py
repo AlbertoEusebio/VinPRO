@@ -1,10 +1,12 @@
 """
 PyTorch Dataset for the 3D2cut Single Guyot grapevine dataset.
 
-Each sample returns:
+Each sample returns a 3-tuple:
     - image: Tensor of shape (3, H, W)
-    - M: Stacked ground-truth tensor of shape (N_h, H_map, W_map)
-         containing node heatmaps and branch vector fields.
+    - M1: Stage-1 GT tensor (σ₁=40) of shape (N_h, H_map, W_map)
+    - M2: Stage-2 GT tensor (σ₂=15) of shape (N_h, H_map, W_map)
+Both M1 and M2 contain node heatmaps and branch vector fields stacked together.
+The vector fields are identical; only the heatmap σ differs (Section 3.1).
 """
 
 import os
@@ -19,7 +21,8 @@ from ..config import (
     BRANCH_TYPES,
     NUM_NODE_TYPES,
     NUM_BRANCH_TYPES,
-    DEFAULT_SIGMA_HEATMAP,
+    DEFAULT_SIGMA_STAGE1,
+    DEFAULT_SIGMA_STAGE2,
     DEFAULT_LIMB_WIDTH,
 )
 from .encoding import (
@@ -44,7 +47,8 @@ class VineDataset(Dataset):
         new_height: Target heatmap/vector field height.
         new_width: Target heatmap/vector field width.
         split: One of 'train', 'val', or 'test'.
-        sigma: Gaussian spread for node heatmaps.
+        sigma1: Spread for stage-1 heatmaps (default: 40, per Section 3.1).
+        sigma2: Spread for stage-2 heatmaps (default: 15, per Section 3.1).
         limb_width: Width of vector field around branch segments.
     """
 
@@ -55,7 +59,8 @@ class VineDataset(Dataset):
         new_height: int = 256,
         new_width: int = 256,
         split: str = "train",
-        sigma: float = DEFAULT_SIGMA_HEATMAP,
+        sigma1: float = DEFAULT_SIGMA_STAGE1,
+        sigma2: float = DEFAULT_SIGMA_STAGE2,
         limb_width: float = DEFAULT_LIMB_WIDTH,
     ):
         super().__init__()
@@ -63,7 +68,8 @@ class VineDataset(Dataset):
         self.transforms = transforms
         self.new_height = new_height
         self.new_width = new_width
-        self.sigma = sigma
+        self.sigma1 = sigma1
+        self.sigma2 = sigma2
         self.limb_width = limb_width
         self.node_types = NODE_TYPES
         self.branch_types = BRANCH_TYPES
@@ -91,7 +97,7 @@ class VineDataset(Dataset):
     def __len__(self) -> int:
         return len(self.image_files)
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         img_file = self.image_files[idx]
         img_path = os.path.join(self.data_dir, img_file)
         annotation_path = os.path.join(
@@ -138,18 +144,8 @@ class VineDataset(Dataset):
             self.limb_width,
         )
 
-        # Generate node heatmaps
-        new_nodes = convert_nodes(nodes, branches, self.branch_types, self.node_types)
-        heatmaps = generate_node_heatmaps(
-            (real_height, real_width),
-            new_nodes,
-            self.sigma,
-            NUM_NODE_TYPES,
-            NUM_BRANCH_TYPES,
-            (self.new_height, self.new_width),
-        )
-
         # Stack vector fields: (N_branch_types, 2, H, W) → (2*N_bt, H, W)
+        # Vector fields are identical for both stages — only heatmap σ differs.
         vf_array = np.array(
             [vf.transpose(2, 0, 1) for vf in vector_fields.values()]
         )
@@ -157,12 +153,34 @@ class VineDataset(Dataset):
             2 * NUM_BRANCH_TYPES, self.new_height, self.new_width
         )
 
-        # Stack heatmaps: (N_bt, N_nt, H, W) → (N_bt*N_nt, H, W)
-        hm_tensor = torch.tensor(heatmaps).view(
+        new_nodes = convert_nodes(nodes, branches, self.branch_types, self.node_types)
+
+        # Stage-1 GT: σ₁=40 (coarse, first hourglass supervision)
+        heatmaps1 = generate_node_heatmaps(
+            (real_height, real_width),
+            new_nodes,
+            self.sigma1,
+            NUM_NODE_TYPES,
+            NUM_BRANCH_TYPES,
+            (self.new_height, self.new_width),
+        )
+        hm1_tensor = torch.tensor(heatmaps1).view(
             NUM_BRANCH_TYPES * NUM_NODE_TYPES, self.new_height, self.new_width
         )
+        M1 = torch.vstack([hm1_tensor, vf_tensor])
 
-        # Concatenate: [heatmaps | vector_fields]
-        M = torch.vstack([hm_tensor, vf_tensor])
+        # Stage-2 GT: σ₂=15 (fine, second hourglass supervision)
+        heatmaps2 = generate_node_heatmaps(
+            (real_height, real_width),
+            new_nodes,
+            self.sigma2,
+            NUM_NODE_TYPES,
+            NUM_BRANCH_TYPES,
+            (self.new_height, self.new_width),
+        )
+        hm2_tensor = torch.tensor(heatmaps2).view(
+            NUM_BRANCH_TYPES * NUM_NODE_TYPES, self.new_height, self.new_width
+        )
+        M2 = torch.vstack([hm2_tensor, vf_tensor])
 
-        return image_tensor, M
+        return image_tensor, M1, M2

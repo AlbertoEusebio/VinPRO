@@ -178,15 +178,16 @@ def run_inference(
     accumulated_pred = defaultdict(list)
     accumulated_gt = defaultdict(list)
     total_loss = 0.0
-    criterion = torch.nn.MSELoss()
+    criterion = torch.nn.MSELoss(reduction="sum")
 
     with torch.no_grad():
-        for batch_idx, (images, M) in enumerate(test_loader):
+        for batch_idx, (images, M1, M2) in enumerate(test_loader):
             images = images.float().to(device)
-            M = M.to(device)
+            M1 = M1.to(device)
+            M2 = M2.to(device)
 
             output1, output2 = model(images)
-            loss = criterion(output1, M) + criterion(output2, M)
+            loss = criterion(output1, M1) + criterion(output2, M2)
             total_loss += loss.item()
 
             for k in range(images.size(0)):
@@ -200,9 +201,9 @@ def run_inference(
                         coords = extract_node_coordinates(hm)
                         accumulated_pred[(bname, nname)].extend(coords)
 
-                # GT nodes from M
+                # GT nodes from M2 (stage-2 GT used for metric computation)
                 gt_heatmaps, _ = recover_heatmaps_vector_fields(
-                    M[k].cpu(), resize=(resize_h, resize_w)
+                    M2[k].cpu(), resize=(resize_h, resize_w)
                 )
                 for bname, bt in BRANCH_TYPES.items():
                     for nname, nt in NODE_TYPES.items():

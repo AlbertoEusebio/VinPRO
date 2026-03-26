@@ -36,21 +36,19 @@ def extract_node_coordinates(
         List of (x, y) coordinates of detected nodes.
     """
     H, W = prediction_map.shape
-    d = int(alpha_lm * W)  # Neighborhood distance
+    d = int(alpha_lm * W)  # Neighborhood distance d = α_lm * W_h
 
-    # Step 1: Compute local maximum map M^max_c
+    # Step 1: For each pixel, compute the local maximum within distance d.
     local_max = maximum_filter(prediction_map, size=d, mode="constant")
-    local_max_map = np.where(prediction_map >= local_max, prediction_map, 0)
 
-    # Step 2: Normalize by local maxima (filter out low-confidence regions)
-    local_max_map = np.where(prediction_map >= tau_n, local_max_map, 0)
-    max_val = np.max(local_max_map)
-    if max_val > 0:
-        normalized_map = local_max_map / max_val
-    else:
-        return [(0, 0)]
+    # Step 2: Where prediction < τ_n, set local_max to 1 so that
+    # normalized value stays below τ_m (low-confidence pixels won't be detected).
+    local_max_safe = np.where(prediction_map >= tau_n, local_max, 1.0)
 
-    # Step 3: Threshold for binary map
+    # Step 3: Per-pixel normalization: M_c = M_c / M_c^max (Section 2.3.3).
+    normalized_map = prediction_map / local_max_safe
+
+    # Step 4: Threshold for binary map
     binary_map = (normalized_map >= tau_m).astype(np.uint8)
 
     # Step 4: Connected component analysis → extract blob centers
