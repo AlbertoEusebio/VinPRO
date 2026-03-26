@@ -11,7 +11,7 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from vinet.config import (
     DEFAULT_BATCH_SIZE,
@@ -91,14 +91,12 @@ def main():
         save_top_k=3,
         mode="min",
     )
-    early_stop = EarlyStopping(monitor="val_loss", patience=20, mode="min")
-
     # Trainer
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         accelerator="gpu" if args.gpus > 0 else "cpu",
         devices=args.gpus if args.gpus > 0 else "auto",
-        callbacks=[checkpoint_callback, early_stop],
+        callbacks=[checkpoint_callback],
     )
 
     trainer.fit(lightning_model, train_loader, val_loader, ckpt_path=args.checkpoint)
