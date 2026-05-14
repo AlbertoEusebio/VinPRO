@@ -5,7 +5,7 @@
 [![Partner](https://img.shields.io/badge/Industry-YANMAR%20R%26D%20Europe-FF6600)](https://www.yanmar.com/eu/)
 [![Vineyard](https://img.shields.io/badge/Field%20Partner-Cantina%20366%20Agli%C3%A9%20TO-darkgreen)]()
 
-VinPRO is a two-year **[Alta Scuola Politecnica](https://www.asp-poli.it/)** multidisciplinary project that developed a proof-of-concept robotic vineyard pruning system. It integrates a custom pruning end-effector, a deep learning computer vision pipeline, a motion planning control stack, and a Virtual Reality training environment — from perceiving a vine in a single RGB image to physically executing a precision cut with a robotic arm.
+VinPRO is a 1 year and 6 months **[Alta Scuola Politecnica](https://www.asp-poli.it/)** multidisciplinary project that developed a proof-of-concept robotic vineyard pruning system. It integrates a custom pruning end-effector, a deep learning computer vision pipeline, a motion planning control stack, and a Virtual Reality training environment. From perceiving a vine in a single RGB image to physically executing a precision cut with a robotic arm.
 
 The project was developed in collaboration with **[PIC4SeR](https://pic4ser.polito.it/)** (Interdepartmental Centre for Service Robotics, Politecnico di Torino / Politecnico di Milano), **YANMAR R&D Europe Srl**, and **Cantina 366** (Aglié, TO).
 
@@ -120,8 +120,6 @@ Two actuation concepts were evaluated:
 An **Arduino Nano** manages the unlock → cut → lock cycle and receives commands from the ROS 2 control stack via `ros2_control`.
 
 All mechanical components were fabricated at **PIC4SeR** (Turin).
-
-> **Note:** The executive summary of the final report describes the housing material as *PA6 polymer*, while the mechanical-design section states *PLA was selected after FEM analyses*. This inconsistency should be resolved before using this repository for design documentation.
 
 ---
 
@@ -256,8 +254,6 @@ WP2 vision pipeline, evaluated on the 3D2cut Single Guyot independent test set (
 | F-Score | 0.75 | — |
 
 Per-category and full results: `Stacked-Hourglass-Network/notebooks/final_result.ipynb`
-
-**Integration status:** The final report states that project expectations were "mostly satisfied," but explicitly notes that *"the connection between them is not completed"* — the subsystems function at the component level but are not yet fully integrated end-to-end. The current system is best described as a lab-validated proof of concept.
 
 ---
 
