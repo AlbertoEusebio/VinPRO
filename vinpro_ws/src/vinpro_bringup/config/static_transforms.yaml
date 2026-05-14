@@ -1,0 +1,12 @@
+# Static transforms that are not covered by the RealSense driver or Kinova URDF.
+# Load with: ros2 run tf2_ros static_transform_publisher
+# or include in launch files.
+
+# camera_link → camera_color_optical_frame
+# Standard ROS optical frame convention:
+#   z forward, x right, y down  →  -90 deg around X then -90 deg around Z
+camera_optical:
+  parent: camera_link
+  child:  camera_color_optical_frame
+  translation: [0.0, 0.0, 0.0]
+  rotation_rpy: [-1.5708, 0.0, -1.5708]   # [roll, pitch, yaw]

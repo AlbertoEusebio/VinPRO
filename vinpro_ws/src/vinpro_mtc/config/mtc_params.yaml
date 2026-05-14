@@ -1,0 +1,8 @@
+vinpro_transform_node:
+  ros__parameters:
+    arm_group:      "manipulator"    # MoveIt planning group for the Kinova arm
+    scissors_group: "scissors"       # Single-joint group for the shear
+    eef_frame:      "scissors_tip"   # Must match URDF and kinematics.yaml
+    scissors_joint: "scissors_joint" # ros2_control joint name from vinpro_eef.urdf.xacro
+    approach_dist:  0.05             # [m] Cartesian approach along tool z-axis
+    retreat_dist:   0.05             # [m] Cartesian retreat after cut

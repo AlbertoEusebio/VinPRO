@@ -1,0 +1,12 @@
+<library path="vinpro_arduino">
+  <class
+    name="vinpro_arduino/ScissorsController"
+    type="vinpro_arduino::ScissorsController"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ros2_control hardware interface for the VinPRO electric shear.
+      Controls an Arduino Nano via serial (send 't' to cut, 'o' to open;
+      Arduino responds with 'A' on completion).
+    </description>
+  </class>
+</library>

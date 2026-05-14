@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vinpro_bringup</name>
+  <version>0.1.0</version>
+  <description>VinPRO top-level launch files</description>
+  <maintainer email="vinpro@polito.it">VinPRO Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <exec_depend>vinpro_perception</exec_depend>
+  <exec_depend>vinpro_camera</exec_depend>
+  <exec_depend>vinpro_transform</exec_depend>
+  <exec_depend>vinpro_mtc</exec_depend>
+  <exec_depend>vinpro_arduino</exec_depend>
+  <exec_depend>vinpro_description</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,18 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 50  # Hz
+
+    scissors_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+scissors_controller:
+  ros__parameters:
+    joints:
+      - scissors_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    open_loop_control: true
+    allow_partial_joints_goal: false

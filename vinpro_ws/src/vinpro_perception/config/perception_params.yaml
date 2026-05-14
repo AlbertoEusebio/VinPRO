@@ -1,0 +1,15 @@
+vinpro_inference:
+  ros__parameters:
+    # Absolute path to the trained WP2 model weights.
+    # Override at launch time: ros2 launch ... model_checkpoint:=/path/to/model.pt
+    model_checkpoint: ""
+
+    # Network architecture — must match the checkpoint.
+    front_channels: 64
+    hourglass_channels: 256
+
+    # Inference device: "cuda:0" or "cpu"
+    device: "cuda:0"
+
+    # Publish RViz markers for detected cutting pixels
+    publish_markers: true

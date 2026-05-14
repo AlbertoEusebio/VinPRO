@@ -1,0 +1,119 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+    VinPRO custom end-effector — mounts over the Kinova Gen3 Lite gripper.
+
+    Frame tree (all joints fixed except scissors_joint):
+      {parent}  ← parameter, typically "end_effector_link" from Kinova URDF
+        └── glove_housing       (fixed, 5 cm forward offset)
+              ├── scissors_blade  (revolute: 0.0=open, 1.0=closed, controlled by Arduino)
+              │     └── scissors_tip  (fixed, tool-point frame for MoveIt)
+              └── camera_mount    (fixed, slight downward tilt)
+                    └── camera_link  (fixed, RealSense D435i optical origin)
+
+    TODO: replace xyz/rpy values with the ones measured during physical calibration.
+    The values below are approximate and must be verified on the real robot.
+  -->
+
+  <xacro:macro name="vinpro_eef" params="parent">
+
+    <!-- ── Glove housing (fixed sleeve over Kinova gripper) ───────────────── -->
+    <link name="glove_housing">
+      <visual>
+        <geometry>
+          <mesh filename="package://vinpro_description/meshes/glove_housing.stl"/>
+        </geometry>
+        <material name="grey"><color rgba="0.6 0.6 0.6 1.0"/></material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://vinpro_description/meshes/glove_housing.stl"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="0.250"/>
+        <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      </inertial>
+    </link>
+
+    <joint name="glove_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child  link="glove_housing"/>
+      <!-- TODO: calibrate this offset against the physical mount -->
+      <origin xyz="0.0 0.0 0.05" rpy="0 0 0"/>
+    </joint>
+
+    <!-- ── Scissors blade (revolute, driven by Arduino via ros2_control) ──── -->
+    <link name="scissors_blade">
+      <visual>
+        <geometry><box size="0.06 0.005 0.02"/></geometry>
+        <material name="silver"><color rgba="0.8 0.8 0.9 1.0"/></material>
+      </visual>
+      <collision>
+        <geometry><box size="0.06 0.005 0.02"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.050"/>
+        <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+      </inertial>
+    </link>
+
+    <joint name="scissors_joint" type="revolute">
+      <parent link="glove_housing"/>
+      <child  link="scissors_blade"/>
+      <!-- TODO: calibrate pivot position and rotation axis from CAD model -->
+      <origin xyz="0.03 0.0 -0.02" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="0.0" upper="1.0" effort="10.0" velocity="1.0"/>
+      <dynamics damping="0.1" friction="0.05"/>
+    </joint>
+
+    <!-- ros2_control tag — ScissorsController hardware interface -->
+    <ros2_control name="ScissorsHW" type="system">
+      <hardware>
+        <plugin>vinpro_arduino/ScissorsController</plugin>
+        <!-- TODO: set to the actual device node (e.g. /dev/ttyACM0 or /dev/ttyUSB0) -->
+        <param name="serial_port">/dev/ttyACM0</param>
+        <param name="baud_rate">9600</param>
+        <param name="timeout_s">5.0</param>
+      </hardware>
+      <joint name="scissors_joint">
+        <command_interface name="position">
+          <param name="min">0.0</param>
+          <param name="max">1.0</param>
+        </command_interface>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+    </ros2_control>
+
+    <!-- ── Scissors tip frame (MoveIt end-effector target) ───────────────── -->
+    <link name="scissors_tip"/>
+    <joint name="tip_joint" type="fixed">
+      <parent link="scissors_blade"/>
+      <child  link="scissors_tip"/>
+      <!-- Tip is at the end of the blade along x -->
+      <origin xyz="0.05 0.0 0.0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- ── Camera mount (fixed, slight downward tilt to see the cut zone) ── -->
+    <link name="camera_mount"/>
+    <joint name="camera_mount_joint" type="fixed">
+      <parent link="glove_housing"/>
+      <child  link="camera_mount"/>
+      <!-- TODO: calibrate camera position from CAD model and hand-eye calibration -->
+      <origin xyz="0.0 0.0 0.04" rpy="0 -0.1745 0"/>  <!-- ~10 deg downward tilt -->
+    </joint>
+
+    <!-- ── RealSense D435i color optical frame ────────────────────────────── -->
+    <link name="camera_link"/>
+    <joint name="camera_joint" type="fixed">
+      <parent link="camera_mount"/>
+      <child  link="camera_link"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+  </xacro:macro>
+
+</robot>
