@@ -17,7 +17,7 @@ The system takes a live RGB-D image of a grapevine, builds a graph of its branch
 
 ## Demo
 
-<video controls src="https://github.com/AlbertoEusebio/VinPRO/blob/main/assets/videos/presentation.mp4" title="<video src="assets/videos/presentation.mp4" controls width="100%"></video>"></video>
+<video controls src="https://github.com/AlbertoEusebio/VinPRO/blob/main/assets/videos/presentation.mp4" width="100%" title="Presentation"></video>
 
 *Integration testing at [PIC4SeR](https://pic4ser.polito.it/) (Turin), demonstrating the full pipeline from image capture to robotic cut on a physical grapevine mock-up.*
 
