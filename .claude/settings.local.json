@@ -10,7 +10,9 @@
       "Bash(python3 -c \"import pkg_resources; [print\\(p\\) for p in pkg_resources.working_set]\")",
       "Bash(python3:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git mv:*)",
+      "Bash(git config:*)"
     ]
   }
 }

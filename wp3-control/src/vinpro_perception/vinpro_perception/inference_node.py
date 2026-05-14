@@ -47,11 +47,11 @@ import numpy as np
 import torch
 
 # ── Locate the WP2 package ────────────────────────────────────────────────────
-# Expect VINET_PATH env var pointing at the Stacked-Hourglass-Network/ directory,
+# Expect VINET_PATH env var pointing at the wp2-computer-vision/ directory,
 # or fall back to a sibling directory in the same repo.
 _VINET_DEFAULT = os.path.join(
     os.path.dirname(__file__),
-    "..", "..", "..", "..", "..", "Stacked-Hourglass-Network",
+    "..", "..", "..", "..", "..", "wp2-computer-vision",
 )
 _VINET_PATH = os.environ.get("VINET_PATH", os.path.abspath(_VINET_DEFAULT))
 if _VINET_PATH not in sys.path:
