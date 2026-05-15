@@ -78,7 +78,7 @@ VinPRO/
 │   ├── models/                   # Trained checkpoints
 │   └── notebooks/                # Experiment and result notebooks
 │
-├── wp3-control/                  # ROS 2 control stack (WP3)
+├── wp3-control/                  # ROS 2 control stack — reference implementation (WP3)
 │   └── src/
 │       ├── custom_msgs/          # Shared message definitions
 │       ├── vinpro_perception/    # WP2 bridge node (Python)
@@ -100,6 +100,8 @@ VinPRO/
 ```
 
 > **WP1 (Gripper Design)** — the custom 3D-printed end-effector and electric shear hardware are described in the [final report](assets/VinPRO_final_report.pdf). The URDF model is in `wp3-control/src/vinpro_description/urdf/vinpro_eef.urdf.xacro`.
+
+> **WP3 (Control Stack)** — the `wp3-control` package is a clean-room reference implementation reconstructed from the architecture and behavior described in the project report. It faithfully follows the node topology, ROS 2 interfaces, MTC stage sequence, and hardware protocol documented therein. Camera-to-robot extrinsic calibration, tool-center-point offsets, and MoveIt planner parameters require site-specific tuning before deployment.
 
 ## Hardware
 
@@ -227,7 +229,7 @@ Vision pipeline evaluated on the **3D2cut Single Guyot** independent test set ([
 The four work packages are independently functional and have been validated in lab conditions at **[PIC4SeR](https://pic4ser.polito.it/)**:
 
 - **WP2** — vision pipeline produces accurate directed graphs on the 3D2cut dataset
-- **WP3** — control stack successfully plans and executes cuts on a physical mock-up
+- **WP3** — control stack architecture validated in lab; the reference implementation in this repository reproduces the documented node topology and MTC pipeline and requires hardware-specific calibration for physical deployment
 - **WP4** — VR environment supports interactive pruning demonstrations with ROS 2 feedback
 - **WP1** — custom end-effector operates reliably with the Kinova arm
 

@@ -12,7 +12,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git mv:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(pip install:*)",
+      "Bash(find /mnt/c/Users/alber/Desktop/programming/ViNet-paper-replica/VinPRO -name *.cfg -o -name pyproject.toml -o -name requirements*.txt)"
     ]
   }
 }
